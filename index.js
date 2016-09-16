@@ -39,14 +39,125 @@ module.exports = function () {
   var playerShape = [[-2,-1.5], [0, 1.5], [2, -1.5]]
   var playerStart = [0, 0.5]
 
+  var controlPanel = document.createElement('div')
+  controlPanel.width = 450
+  controlPanel.height = 800
+  controlPanel.style.float = 'left'
+  controlPanel.style.marginLeft = '20px'
+  // var css = require('dom-css')
+  // css(controlPanel, {
+  //   float: 'left',
+  //   marginLeft: '20px'
+  // })
+  document.body.appendChild(controlPanel)
+
+var mazePanel = document.createElement('div')
+mazePanel.width = 500
+mazePanel.height = 800
+mazePanel.style.float = 'right'
+document.body.appendChild(mazePanel)
+
+  var results = {
+    trial: 0,
+    velocityForward: 0,
+    velocityLateral: 0,
+    wallLeft: 0,
+    wallRight: 0,
+    wallForward: 0,
+    reward: false,
+    collision: false,
+    link: false,
+    advance: false,
+    response: false,
+    elapsedTime: 0
+  }
+  var rewards = 0
+  var responses = 0
+  var timeEl =  document.createElement('h2')
+  
+  timeEl.innerHTML = 'Time: ' + (results.elapsedTime/1000).toFixed(1)
+  controlPanel.appendChild(timeEl)
+
+  var trialNumEl =  document.createElement('h2')
+  trialNumEl.innerHTML = 'Trial number: ' + results.trial
+  controlPanel.appendChild(trialNumEl)
+
+  createLED = function () {
+    var LED = document.createElement('canvas')
+    LED.width = 40
+    LED.height = 40
+    LED.style.backgroundColor = '#000000'
+    LED.style.border = '2px solid white'
+    return LED
+  }
+  
+  var rewardLED = createLED()
+  var responseLED = createLED()
+  var collisionLED = createLED()
+  controlPanel.appendChild(rewardLED)
+  controlPanel.appendChild(responseLED)
+  controlPanel.appendChild(collisionLED)
+
+  var wdL =  document.createElement('h2')
+  wdL.innerHTML = 'Left wall distance: ' + results.wallLeft + ' mm'
+  controlPanel.appendChild(wdL)
+  var wdR =  document.createElement('h2')
+  wdR.innerHTML = 'Right wall distance: ' + results.wallRight + ' mm'
+  controlPanel.appendChild(wdR)
+  var wdF =  document.createElement('h2')
+  wdF.innerHTML = 'Forward wall distance: ' + results.wallForward + ' mm'
+  controlPanel.appendChild(wdF)
+  var speedEl =  document.createElement('h2')
+  var speed = (results.velocityForward**2 + results.velocityLateral**2)**(0.5)
+  speedEl.innerHTML = 'Speed: ' + speed.toFixed(1) + ' cm/s'
+  controlPanel.appendChild(speedEl)
+
+  var line = require('lightning-line-streaming')
+  var divG = document.createElement('div')
+  divG.style.width='500px'
+  var elG = controlPanel.appendChild(divG)
+  var xTime = new Array(300).fill(0)
+  var ySpeed = new Array(300).fill(0)
+  var yDeltaTime = new Array(300).fill(0)
+  var vizGraph = new line(elG, {
+    'series': ySpeed,
+    'index': xTime,
+    'xaxis': 'Time (s)',
+    'yaxis': 'Speed (cm/s)',
+    'thickness': 7,
+    'color': [255, 100, 0]
+  }, [], {'zoom': false})
+  var yDomain = [0, 50]
+  var xDomain = [-7, 0]
+
+  var ySpread = Math.abs(yDomain[1] - yDomain[0]) || 1;
+  var xSpread = Math.abs(xDomain[1] - xDomain[0]) || 1;
+
+  vizGraph.x.domain([xDomain[0] - 0.05 * xSpread, xDomain[1] + 0.05 * xSpread])
+  vizGraph.y.domain([yDomain[0] - 0.05 * ySpread, yDomain[1] + 0.05 * ySpread])
+
+  vizGraph.updateAxis()
+  vizGraph.updateData({
+    'series': [ySpeed, yDeltaTime],
+    'index': xTime,
+    'thickness': [2, 2],
+    'color': [[255, 0, 0], [0, 0, 0]]
+  })
+
+
+
+var canvas = document.createElement('canvas')
+canvas.width = 500
+canvas.height = 800
+canvas.style.backgroundColor = '#000000'
+mazePanel.appendChild(canvas)
+
+
+
+
   return {
     createStream: function (initMap) {
       map = convertMap(initMap)
-      var canvas = document.createElement('canvas')
-      canvas.width = 600
-      canvas.height = 800
-      canvas.style.backgroundColor = '#000000'
-      document.body.appendChild(canvas)
 
       drawPolygon = function (context, points, props) {
         if (props.fill || props.stroke) {
@@ -89,96 +200,7 @@ module.exports = function () {
       var position = playerStart
       var hit = [[[position, position], [position, position]], [[position, position], [position, position]], [[position, position], [position, position]]]
 
-      var results = {
-          trial: 0,
-          velocityForward: 0,
-          velocityLateral: 0,
-          wallLeft: 0,
-          wallRight: 0,
-          wallForward: 0,
-          reward: false,
-          collision: false,
-          link: false,
-          advance: false,
-          response: false,
-          elapsedTime: 0
-        }
-        var rewards = 0
-        var responses = 0
-        var timeEl =  document.createElement('h2')
-        
-        timeEl.innerHTML = 'Time: ' + (results.elapsedTime/1000).toFixed(1)
-        document.body.appendChild(timeEl)
-
-        var trialNumEl =  document.createElement('h2')
-        trialNumEl.innerHTML = 'Trial number: ' + results.trialNumber
-        document.body.appendChild(trialNumEl)
-
-        createLED = function () {
-          var LED = document.createElement('canvas')
-          LED.width = 40
-          LED.height = 40
-          LED.style.backgroundColor = '#000000'
-          LED.style.border = '2px solid white'
-          return LED
-        }
-        
-        var rewardLED = createLED()
-        var responseLED = createLED()
-        var collisionLED = createLED()
-        document.body.appendChild(rewardLED)
-        document.body.appendChild(responseLED)
-        document.body.appendChild(collisionLED)
-
-
-        var wdL =  document.createElement('h2')
-        wdL.innerHTML = 'Left wall distance: ' + results.wallLeft + ' mm'
-        document.body.appendChild(wdL)
-        var wdR =  document.createElement('h2')
-        wdR.innerHTML = 'Right wall distance: ' + results.wallRight + ' mm'
-        document.body.appendChild(wdR)
-        var wdF =  document.createElement('h2')
-        wdF.innerHTML = 'Forward wall distance: ' + results.wallForward + ' mm'
-        document.body.appendChild(wdF)
-        var speedEl =  document.createElement('h2')
-        var speed = (results.velocityForward**2 + results.velocityLateral**2)**(0.5)
-        speedEl.innerHTML = 'Speed: ' + speed.toFixed(1) + ' cm/s'
-        document.body.appendChild(speedEl)
-
-
-        var line = require('lightning-line-streaming')
-        var divG = document.createElement('div')
-        divG.style.width='500px'
-        var elG = document.body.appendChild(divG)
-        var xTime = new Array(300).fill(0)
-        var ySpeed = new Array(300).fill(0)
-        var yDeltaTime = new Array(300).fill(0)
-        var vizGraph = new line(elG, {
-          'series': ySpeed,
-          'index': xTime,
-          'xaxis': 'Time (s)',
-          'yaxis': 'Speed (cm/s)',
-          'thickness': 7,
-          'color': [255, 100, 0]
-        }, [], {'zoom': false})
-        var yDomain = [0, 50]
-        var xDomain = [-7, 0]
-
-        var ySpread = Math.abs(yDomain[1] - yDomain[0]) || 1;
-        var xSpread = Math.abs(xDomain[1] - xDomain[0]) || 1;
-
-        vizGraph.x.domain([xDomain[0] - 0.05 * xSpread, xDomain[1] + 0.05 * xSpread])
-        vizGraph.y.domain([yDomain[0] - 0.05 * ySpread, yDomain[1] + 0.05 * ySpread])
-
-        vizGraph.updateAxis()
-        vizGraph.updateData({
-          'series': [ySpeed, yDeltaTime],
-          'index': xTime,
-          'thickness': [2, 2],
-          'color': [[255, 0, 0], [0, 0, 0]]
-        })
-
-
+      
       raf(function tick() {
         context.clearRect(0, 0, canvas.width, canvas.height);
         drawPolygon(context, scale(canvas, map.area[0]), {
@@ -243,18 +265,18 @@ module.exports = function () {
         ySpeed.shift()
         xTime.shift()
 
-        // xDomain[0] = -5+results.time/1000
-        // xDomain[1] = results.time/1000
-        // xSpread = Math.abs(xDomain[1] - xDomain[0]) || 1;
-        // vizGraph.x.domain([xDomain[0] - 0.05 * xSpread, xDomain[1] + 0.05 * xSpread])
+        xDomain[0] = -5+results.time/1000
+        xDomain[1] = results.time/1000
+        xSpread = Math.abs(xDomain[1] - xDomain[0]) || 1;
+        vizGraph.x.domain([xDomain[0] - 0.05 * xSpread, xDomain[1] + 0.05 * xSpread])
 
-        // vizGraph.updateAxis()
-        // vizGraph.updateData({
-        //   'series': [ySpeed, yDeltaTime],
-        //   'index': xTime,
-        //   'thickness': [2, 2],
-        //   'color': [[255, 0, 0], [0, 0, 0]]
-        // })
+        vizGraph.updateAxis()
+        vizGraph.updateData({
+          'series': [ySpeed, yDeltaTime],
+          'index': xTime,
+          'thickness': [2, 2],
+          'color': [[255, 0, 0], [0, 0, 0]]
+        })
 
         raf(tick)
       })
